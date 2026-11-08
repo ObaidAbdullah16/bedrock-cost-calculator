@@ -1,0 +1,33 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+      - name: Unit tests (the cost maths)
+        run: node --test
+      - name: HTML lint
+        run: npx --yes htmlhint@1.1.4 site/index.html
+      - name: Prices are not stale
+        run: |
+          checked=$(grep -oE 'checked: "[0-9-]+"' site/prices.js | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+          age=$(( ( $(date +%s) - $(date -d "$checked" +%s) ) / 86400 ))
+          echo "Prices last checked $checked ($age days ago)"
+          if [ "$age" -gt 90 ]; then
+            echo "::warning::Bedrock prices were last checked $age days ago - re-check site/prices.js"
+          fi
